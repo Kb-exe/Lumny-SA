@@ -3,6 +3,7 @@ import { User, MzansiMode, MzansiTutaResponse, SummaryResult, QuestionsResult, M
 import { SAMPLE_STUDY_DOCUMENTS, SampleDoc } from '../../data/mockLearners';
 import { ALL_GRADE12_SUBJECTS } from '../../data/grade12Subjects';
 import { generateClientSideCapsContent } from '../../services/capsEngine';
+import mzansiAvatar from '../../assets/images/mzansi_tuta_avatar_1792414055226.jpg';
 import { Sparkles, Upload, FileText, CheckCircle, RefreshCw, Layers, HelpCircle, Check, Eye, Send, ArrowRight, BookOpen, AlertCircle, Bookmark } from 'lucide-react';
 
 interface MzansiTutaSectionProps {
@@ -197,7 +198,7 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
         <div className="flex items-start sm:items-center gap-4">
           <div className="w-16 h-16 rounded-xl bg-slate-950 p-1 shrink-0 shadow-md">
             <img
-              src="/src/assets/images/mzansi_tuta_avatar_1792414055226.jpg"
+              src={mzansiAvatar}
               alt="Mzansi Tuta Avatar"
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover rounded-lg"

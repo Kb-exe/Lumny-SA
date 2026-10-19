@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Grade12Subject } from '../../types';
 import { ALL_GRADE12_SUBJECTS } from '../../data/grade12Subjects';
+import matricBanner from '../../assets/images/lumina_matric_banner_1792414055860.jpg';
 import { BookOpen, Sparkles, FileText, Flame, Clock, Award, CheckCircle, ArrowRight, Play, Pause, RotateCcw, Calendar, Check } from 'lucide-react';
 
 interface LearnerDashboardProps {
@@ -78,6 +79,9 @@ export const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
       
       {/* Hero Welcome Banner */}
       <div className="relative rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-6 sm:p-8 overflow-hidden border border-slate-800 shadow-md">
+        <div className="absolute inset-0 opacity-15 pointer-events-none mix-blend-luminosity">
+          <img src={matricBanner} alt="Lumina Grade 12" className="w-full h-full object-cover" />
+        </div>
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
             <div className="flex items-center gap-2 text-xs font-semibold text-amber-400">
