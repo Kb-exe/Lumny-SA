@@ -311,7 +311,7 @@ export const PastPapersSection: React.FC<PastPapersSectionProps> = ({
                         `${paper.subjectName} ${paper.year} ${paper.paperNumber}`
                       )
                     }
-                    title="Send paper to Mzansi Tuta for AI questions, MCQs & flashcards"
+                    title="Send paper to Mzansi Tutor for AI questions, MCQs & flashcards"
                     className="p-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg transition-colors"
                   >
                     <Sparkles className="w-4 h-4" />
@@ -385,7 +385,7 @@ export const PastPapersSection: React.FC<PastPapersSectionProps> = ({
                   </button>
                 </div>
 
-                {/* Send to Mzansi Tuta AI */}
+                {/* Send to Mzansi Tutor AI */}
                 <button
                   onClick={() => {
                     onSendToMzansiTuta(
@@ -398,7 +398,7 @@ export const PastPapersSection: React.FC<PastPapersSectionProps> = ({
                   className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition-colors"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Analyze in Mzansi Tuta</span>
+                  <span>Analyze in Mzansi Tutor</span>
                 </button>
 
                 <button

@@ -100,10 +100,20 @@ export interface McqOptionItem {
   explanation: string;
 }
 
+export interface McqQuestionItem {
+  id: string;
+  questionText: string;
+  options: { id: string; text: string }[];
+  correctOptionId: string;
+  explanation: string;
+  examTrap?: string;
+}
+
 export interface McqResult {
   type: 'mcq';
   title: string;
-  items: McqOptionItem[];
+  items?: McqOptionItem[];
+  questions?: McqQuestionItem[];
 }
 
 export interface FlashcardItem {
@@ -142,3 +152,4 @@ export interface ChatResult {
 }
 
 export type MzansiTutaResponse = SummaryResult | QuestionsResult | McqResult | FlashcardsResult | FillGapResult | ChatResult;
+export type MzansiTutorResponse = MzansiTutaResponse;

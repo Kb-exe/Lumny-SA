@@ -37,7 +37,7 @@ function getFallbackMzansiContent(mode: string, subject: string, docText: string
     return {
       type: 'summary',
       title: `CAPS Study Summary: ${subject || 'Grade 12 Curriculum'}`,
-      overview: `High-yield Grade 12 NSC revision summary synthesized by Mzansi Tuta based on your submitted notes.`,
+      overview: `High-yield Grade 12 NSC revision summary synthesized by Mzansi Tutor based on your submitted notes.`,
       keyConcepts: [
         {
           heading: "Core Principle & Definitions",
@@ -215,7 +215,7 @@ function getFallbackMzansiContent(mode: string, subject: string, docText: string
   // Default chat response
   return {
     type: 'chat',
-    response: `Sharp! I am Mzansi Tuta, your personal South African Grade 12 NSC study coach. Based on your document and query for ${subject || 'Matric studies'}:
+    response: `Sharp! I am Mzansi Tutor, your personal South African Grade 12 NSC study coach. Based on your document and query for ${subject || 'Matric studies'}:
     
 1. **Core Concept**: Focus on the foundational principles emphasized by the Department of Basic Education (DBE). Examiners consistently award 2 marks for exact verbatim definitions.
 2. **Formula Strategy**: Always write the official CAPS formula sheet version first before plugging in values.
@@ -225,10 +225,10 @@ How else can I help you ace your Grade 12 exams? Feel free to ask me to generate
   };
 }
 
-// API endpoint for Mzansi Tuta
-app.post('/api/mzansi-tuta/generate', async (req, res) => {
+// API endpoint for Mzansi Tutor
+async function handleMzansiGeneration(req: express.Request, res: express.Response) {
   try {
-    const { mode, documentText, subject, fileName, customPrompt } = req.body;
+    const { mode, documentText, subject, fileName, customPrompt, fileData, fileMimeType } = req.body;
 
     if (!mode) {
       return res.status(400).json({ error: 'Mode is required' });
@@ -240,9 +240,10 @@ app.post('/api/mzansi-tuta/generate', async (req, res) => {
     // If Gemini client is available, attempt real AI generation
     if (ai) {
       try {
-        let systemInstruction = `You are "Mzansi Tuta", an elite South African AI tutor built specifically for Grade 12 National Senior Certificate (NSC / IEB) matriculants.
+        let systemInstruction = `You are "Mzansi Tutor", an elite South African AI tutor built specifically for Grade 12 National Senior Certificate (NSC / IEB) matriculants.
 Your mission is to help South African Grade 12 learners master their CAPS syllabus, score Level 7s (distinctions: 80%+), and prepare for NSC prelims and final examinations.
 Adhere strictly to DBE Grade 12 examination guidelines, standard marking memoranda formatting, cognitive levels (Level 1: Recall to Level 4: Problem Solving), and authentic South African educational terminology.
+If an image or document diagram is provided, analyze the formulas, vectors, geometric figures, chemical structures, or handwritten questions carefully.
 Always respond in valid JSON format matching the requested schema.`;
 
         let userPrompt = '';
@@ -362,7 +363,7 @@ Return a JSON object with this exact structure:
 }`;
         } else {
           // Direct chat / Q&A
-          userPrompt = `The learner is asking Mzansi Tuta: "${customPrompt || safeDocText}".
+          userPrompt = `The learner is asking Mzansi Tutor: "${customPrompt || safeDocText}".
 Subject: ${safeSubject}.
 Provide a motivating, highly practical, South African Grade 12 CAPS aligned response.
 Return a JSON object:
@@ -372,9 +373,22 @@ Return a JSON object:
 }`;
         }
 
+        // Multimodal support: if image is present, pass inlineData
+        const contentParts: any[] = [];
+        if (fileData && fileMimeType && fileMimeType.startsWith('image/')) {
+          const cleanBase64 = fileData.replace(/^data:[^;]+;base64,/, '');
+          contentParts.push({
+            inlineData: {
+              data: cleanBase64,
+              mimeType: fileMimeType,
+            },
+          });
+        }
+        contentParts.push(userPrompt);
+
         const response = await ai.models.generateContent({
           model: 'gemini-3.8-flash',
-          contents: userPrompt,
+          contents: contentParts.length === 1 ? userPrompt : contentParts,
           config: {
             systemInstruction,
             responseMimeType: 'application/json',
@@ -396,10 +410,13 @@ Return a JSON object:
       return res.json({ success: true, data: fallback, source: 'caps-engine' });
     }
   } catch (error: any) {
-    console.error('Error in /api/mzansi-tuta/generate:', error);
+    console.error('Error in Mzansi Tutor generator:', error);
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
-});
+}
+
+app.post('/api/mzansi-tutor/generate', handleMzansiGeneration);
+app.post('/api/mzansi-tuta/generate', handleMzansiGeneration);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

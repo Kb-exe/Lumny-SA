@@ -13,7 +13,7 @@ export function generateClientSideCapsContent(
     return {
       type: 'summary',
       title: `CAPS High-Yield Revision: ${safeSubject}`,
-      overview: `High-yield Grade 12 National Senior Certificate (NSC) study summary synthesized by Mzansi Tuta. Formatted according to the Department of Basic Education examination guidelines.`,
+      overview: `High-yield Grade 12 National Senior Certificate (NSC) study summary synthesized by Mzansi Tutor. Formatted according to the Department of Basic Education examination guidelines.`,
       keyConcepts: [
         {
           heading: "Core CAPS Definitions & Statements",
@@ -190,7 +190,7 @@ export function generateClientSideCapsContent(
 
   return {
     type: 'chat',
-    response: `Sharp! I am Mzansi Tuta, your personal South African Grade 12 NSC study coach.
+    response: `Sharp! I am Mzansi Tutor, your personal South African Grade 12 NSC study coach.
     
 1. **Core Concept**: Focus on the foundational principles emphasized by the Department of Basic Education (DBE). Examiners consistently award 2 marks for exact verbatim definitions.
 2. **Formula Strategy**: Always write down the official CAPS formula sheet version first before substituting values.

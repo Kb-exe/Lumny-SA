@@ -305,3 +305,52 @@ export function getSubscriptionRevenueStats() {
   };
 }
 
+const ADMIN_CREDENTIALS_KEY = 'lumina_sa_admin_auth_v1';
+
+export interface AdminCredentials {
+  username: string;
+  password: string;
+  lastUpdated?: string;
+}
+
+export function getAdminCredentials(): AdminCredentials {
+  try {
+    const raw = localStorage.getItem(ADMIN_CREDENTIALS_KEY);
+    if (!raw) {
+      const defaults: AdminCredentials = {
+        username: 'admin_lumina',
+        password: 'LuminaSA#2026Admin',
+        lastUpdated: new Date().toISOString(),
+      };
+      localStorage.setItem(ADMIN_CREDENTIALS_KEY, JSON.stringify(defaults));
+      return defaults;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    return {
+      username: 'admin_lumina',
+      password: 'LuminaSA#2026Admin',
+    };
+  }
+}
+
+export function verifyAdminCredentials(inputUser: string, inputPass: string): boolean {
+  const creds = getAdminCredentials();
+  const cleanInput = inputUser.trim().toLowerCase();
+  const isUserMatch =
+    cleanInput === creds.username.toLowerCase() ||
+    cleanInput === 'admin@lumina.co.za' ||
+    cleanInput === 'admin_lumina';
+  return isUserMatch && inputPass.trim() === creds.password.trim();
+}
+
+export function updateAdminCredentials(newUsername: string, newPassword: string): void {
+  const creds: AdminCredentials = {
+    username: newUsername.trim(),
+    password: newPassword.trim(),
+    lastUpdated: new Date().toISOString(),
+  };
+  localStorage.setItem(ADMIN_CREDENTIALS_KEY, JSON.stringify(creds));
+}
+
+

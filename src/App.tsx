@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { User } from './types';
 import { getCurrentUser, setCurrentUser, getStoredUsers } from './services/storage';
-import { INITIAL_ADMIN, INITIAL_LEARNERS } from './data/mockLearners';
+import { INITIAL_LEARNERS } from './data/mockLearners';
 import { Navbar } from './components/Navbar';
 import { LearnerDashboard } from './components/dashboard/LearnerDashboard';
 import { PastPapersSection } from './components/pastpapers/PastPapersSection';
-import { MzansiTutaSection } from './components/mzansituta/MzansiTutaSection';
+import { MzansiTutorSection } from './components/mzansituta/MzansiTutaSection';
 import { AdminPortal } from './components/admin/AdminPortal';
 import { AuthModal } from './components/auth/AuthModal';
+import { AdminLoginModal } from './components/admin/AdminLoginModal';
 import { SubscriptionModal } from './components/subscription/SubscriptionModal';
-import { Sparkles, Shield, BookOpen, Heart, GraduationCap, CreditCard } from 'lucide-react';
+import { Sparkles, Shield, BookOpen, Heart, GraduationCap, CreditCard, Lock } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUserState] = useState<User | null>(getCurrentUser());
@@ -17,38 +18,54 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
 
-  // Passing past paper content into Mzansi Tuta
+  // Passing past paper content into Mzansi Tutor
   const [tutaDocText, setTutaDocText] = useState<string>('');
   const [tutaSubject, setTutaSubject] = useState<string>('Mathematics');
   const [tutaDocTitle, setTutaDocTitle] = useState<string>('');
 
+  // Support URL hash navigation for admin gate (e.g. /#admin)
+  useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash === '#admin' || window.location.hash === '#admin-login') {
+        if (currentUser?.role === 'admin') {
+          setActiveTab('admin');
+        } else {
+          setIsAdminLoginModalOpen(true);
+        }
+      }
+    };
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, [currentUser]);
+
   const handleUserLogin = (user: User) => {
     setCurrentUserState(user);
     setCurrentUser(user);
+    if (user.role === 'admin') {
+      setActiveTab('admin');
+    } else {
+      setActiveTab('dashboard');
+    }
   };
 
-  const handleLogout = () => {
-    setCurrentUserState(null);
-    setCurrentUser(null);
-    setIsAuthModalOpen(true);
-    setAuthInitialMode('login');
-  };
-
-  const handleSwitchToAdmin = () => {
-    const users = getStoredUsers();
-    const adminUser = users.find((u) => u.role === 'admin') || INITIAL_ADMIN;
+  const handleAdminAuthenticated = (adminUser: User) => {
     setCurrentUserState(adminUser);
     setCurrentUser(adminUser);
     setActiveTab('admin');
   };
 
-  const handleSwitchToLearner = () => {
-    const users = getStoredUsers();
-    const learnerUser = users.find((u) => u.role === 'learner' && !u.isBanned) || INITIAL_LEARNERS[0];
-    setCurrentUserState(learnerUser);
-    setCurrentUser(learnerUser);
+  const handleLogout = () => {
+    const wasAdmin = currentUser?.role === 'admin';
+    setCurrentUserState(null);
+    setCurrentUser(null);
     setActiveTab('dashboard');
+    if (!wasAdmin) {
+      setIsAuthModalOpen(true);
+      setAuthInitialMode('login');
+    }
   };
 
   const handleSendToMzansiTuta = (docText: string, subject: string, title: string) => {
@@ -71,8 +88,6 @@ export default function App() {
           setIsAuthModalOpen(true);
         }}
         onLogout={handleLogout}
-        onSwitchToAdmin={handleSwitchToAdmin}
-        onSwitchToLearner={handleSwitchToLearner}
         onOpenSubscription={() => setIsSubscriptionModalOpen(true)}
       />
 
@@ -102,7 +117,7 @@ export default function App() {
               </h1>
               <p className="text-sm text-slate-600 max-w-lg mx-auto">
                 South Africa's premier Grade 12 National Senior Certificate (NSC) exam preparation hub.
-                Log in to access your personalized dashboard, CAPS past papers, and Mzansi Tuta AI.
+                Log in to access your personalized dashboard, CAPS past papers, and Mzansi Tutor AI.
               </p>
               <div className="pt-2 flex items-center justify-center gap-3">
                 <button
@@ -112,7 +127,7 @@ export default function App() {
                   }}
                   className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm rounded-lg transition-colors shadow-sm"
                 >
-                  Log In
+                  Learner Log In
                 </button>
                 <button
                   onClick={() => {
@@ -137,7 +152,7 @@ export default function App() {
         )}
 
         {activeTab === 'mzansituta' && (
-          <MzansiTutaSection
+          <MzansiTutorSection
             currentUser={currentUser}
             initialDocumentText={tutaDocText}
             initialSubject={tutaSubject}
@@ -149,6 +164,7 @@ export default function App() {
           <AdminPortal
             currentUser={currentUser}
             onRefreshUser={() => setCurrentUserState(getCurrentUser())}
+            onOpenAdminLogin={() => setIsAdminLoginModalOpen(true)}
           />
         )}
       </main>
@@ -178,26 +194,35 @@ export default function App() {
               className="text-amber-400 hover:underline flex items-center gap-1 font-medium"
             >
               <CreditCard className="w-3 h-3" />
-              <span>Subscription &amp; Free Trial</span>
+              <span>Subscription &amp; Free Trial ($6.99/mo)</span>
             </button>
             <span aria-hidden="true">·</span>
+            {/* Discrete Admin Gate - Strictly Separated */}
             <button
-              onClick={handleSwitchToAdmin}
-              className="text-slate-300 hover:underline flex items-center gap-1 font-medium"
+              onClick={() => setIsAdminLoginModalOpen(true)}
+              className="text-slate-500 hover:text-amber-400 flex items-center gap-1 font-mono transition-colors"
+              title="Staff & Department Administrator Authorization Gate"
             >
-              <Shield className="w-3 h-3" />
-              <span>Admin Access</span>
+              <Lock className="w-3 h-3" />
+              <span>Staff &amp; Admin Gate</span>
             </button>
           </div>
         </div>
       </footer>
 
-      {/* Login & Create Account Modal */}
+      {/* Grade 12 Learner Login & Registration Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onSuccess={handleUserLogin}
         initialMode={authInitialMode}
+      />
+
+      {/* Discrete Administrator Authorization Modal (Separated Account) */}
+      <AdminLoginModal
+        isOpen={isAdminLoginModalOpen}
+        onClose={() => setIsAdminLoginModalOpen(false)}
+        onAdminAuthenticated={handleAdminAuthenticated}
       />
 
       {/* Subscription & 7-Day Free Trial Modal */}

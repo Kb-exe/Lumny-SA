@@ -143,7 +143,7 @@ export const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
             </div>
             <p className="text-xs text-slate-600 mt-0.5">
               {currentUser.subscription?.status === 'trialing'
-                ? 'Your 7-day trial gives you unlimited Mzansi Tuta AI summaries, flashcards, MCQs, and complete NSC Past Papers.'
+                ? 'Your 7-day trial gives you unlimited Mzansi Tutor AI summaries, flashcards, MCQs, and complete NSC Past Papers.'
                 : currentUser.subscription?.status === 'active'
                 ? 'Your account is fully unlocked for all 2026 DBE examination prep and revision.'
                 : 'Try Lumina SA risk-free for 7 days. Monthly fee is $6.99/mo or save 30% with a yearly subscription.'}
@@ -279,7 +279,7 @@ export const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
                     className="flex-1 py-1.5 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-slate-950" />
-                    <span>Mzansi Tuta</span>
+                    <span>Mzansi Tutor</span>
                   </button>
                 </div>
               </div>

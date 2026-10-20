@@ -11,23 +11,28 @@ A complete web platform built for South African Grade 12 learners preparing for 
   - Enrolled Grade 12 subjects with direct exam prep shortcuts.
   - Daily CAPS exam question challenge with marking guidelines.
   - 25-minute Pomodoro matric focus study timer.
-- **Mzansi Tuta AI Engine**:
-  - High-yield study summaries from uploaded files (PDF, Word, PPT, TXT, images) or pre-loaded CAPS guides.
-  - Long and short questions with official mark breakdowns.
+- **Mzansi Tutor AI Engine**:
+  - High-yield study summaries from uploaded files (**PDF**, **Word .docx**, **PowerPoint .pptx**, **Images PNG/JPG**, TXT) or pre-loaded CAPS guides.
+  - Multi-modal support: directly reads diagrams, geometric shapes, and handwritten exam questions from images using Gemini 3.8 Flash.
+  - Long and short questions with official DBE mark breakdowns and marking memos.
   - Interactive Multiple Choice Questions (MCQs) with instant scoring and explanations.
-  - Digital Flashcards with 3D flip and mastery tracking.
+  - Digital Flashcards with 3D flip and active recall mastery tracking.
   - Fill-in-the-gap exercises with hint reveals.
   - South African AI Tutor assistant chat (works online with Gemini API and offline with client-side CAPS knowledge engine).
 - **Comprehensive Past Papers Archive**:
   - NSC past examination papers (Paper 1 & Paper 2) spanning 2021–2024.
   - Split-screen viewer: Question Paper and Official Marking Memorandum side-by-side.
-  - One-click "Send to Mzansi Tuta AI" to generate customized questions and summaries from any past paper.
-- **Strict South African Matric Authentication**:
+  - One-click "Analyze in Mzansi Tutor" to generate customized questions and summaries from any past paper.
+- **Strict South African Matric Authentication (Learner Portal)**:
   - High school selection (Pretoria Boys, Durban High, St John's, Crawford, Hoërskool Menlopark, etc.).
   - 7 Grade 12 subjects selection.
   - 15-character strict password rule (length, uppercase, number, symbol).
   - OTP verification simulator (via Gmail or SMS).
   - Forgot Password reset with OTP.
+- **Separate Administrator Authorization Gate**:
+  - 100% separated from learner accounts. Learners have zero access to the admin account.
+  - Admin login accessible exclusively via discrete Staff & Admin Gate using specific administrator credentials.
+  - Admin credential manager: administrator can update their confidential username and master password at any time.
 - **Subscription Plans**:
   - **7-Day Free Trial** ($0 due today).
   - **Monthly Subscription**: **$6.99 / month** (approx. R125/mo).

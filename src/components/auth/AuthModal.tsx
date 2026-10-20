@@ -106,6 +106,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
+    if (user.role === 'admin') {
+      setErrorMessage(
+        'Access Denied: This login portal is strictly reserved for Grade 12 Learners. Department & System Administrators must authenticate via the Staff & Admin Portal.'
+      );
+      return;
+    }
+
     if (user.isBanned) {
       setErrorMessage(`Account Banned: ${user.bannedReason || 'This account has been suspended by the administrator.'}`);
       return;
@@ -307,15 +314,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setSuccessMessage(`Reset code sent to ${cleanTarget}!`);
   };
 
-  // Quick 1-click test credentials
+  // Quick 1-click test credentials for learner
   const fillDemoLearner = () => {
     setLoginIdentifier('karabolekalakala44@gmail.com');
     setLoginPassword('Matric2026Pass#1');
-  };
-
-  const fillDemoAdmin = () => {
-    setLoginIdentifier('admin@lumina.co.za');
-    setLoginPassword('LuminaSA#2026Admin');
   };
 
   return (
@@ -459,29 +461,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <ArrowRight className="w-4 h-4" />
               </button>
 
-              {/* Quick Fill Test Helpers */}
+              {/* Quick Fill Test Helper */}
               <div className="pt-4 border-t border-slate-200">
                 <span className="text-[11px] font-semibold text-slate-500 block mb-2 uppercase tracking-wider">
-                  Quick Demo Accounts
+                  Test Grade 12 Learner Account
                 </span>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={fillDemoLearner}
-                    className="p-2 text-left border border-slate-200 hover:border-amber-400 rounded-lg bg-slate-50 hover:bg-amber-50/50 transition-colors text-xs"
-                  >
-                    <div className="font-semibold text-slate-800">Karabo (Learner)</div>
-                    <div className="text-[10px] text-slate-500 truncate">Matric 7 Subjects</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={fillDemoAdmin}
-                    className="p-2 text-left border border-slate-200 hover:border-amber-400 rounded-lg bg-slate-50 hover:bg-amber-50/50 transition-colors text-xs"
-                  >
-                    <div className="font-semibold text-slate-800">Admin Portal</div>
-                    <div className="text-[10px] text-slate-500 truncate">Manage Users & Stats</div>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={fillDemoLearner}
+                  className="w-full p-2.5 text-left border border-slate-200 hover:border-amber-400 rounded-lg bg-slate-50 hover:bg-amber-50/50 transition-colors text-xs flex items-center justify-between"
+                >
+                  <div>
+                    <div className="font-semibold text-slate-800">Karabo Lekalakala (Grade 12 Learner)</div>
+                    <div className="text-[10px] text-slate-500">karabolekalakala44@gmail.com · 5 Enrolled Subjects</div>
+                  </div>
+                  <span className="text-[10px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded font-medium">1-Click Fill</span>
+                </button>
               </div>
             </form>
           )}

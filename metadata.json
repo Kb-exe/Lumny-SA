@@ -1,6 +1,6 @@
 {
   "name": "Lumina SA - Grade 12 NSC Learning & Exam Prep",
-  "description": "South Africa Grade 12 CAPS/NSC exam prep platform with Mzansi Tuta AI study engine, past papers archive, personalized learner dashboard, and admin oversight.",
+  "description": "South Africa Grade 12 CAPS/NSC exam prep platform with Mzansi Tutor AI study engine, past papers archive, personalized learner dashboard, and admin oversight.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

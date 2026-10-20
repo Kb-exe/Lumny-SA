@@ -1,61 +1,61 @@
-import React, { useState, useRef } from 'react';
-import { User, MzansiMode, MzansiTutaResponse, SummaryResult, QuestionsResult, McqResult, FlashcardsResult, FillGapResult, ChatResult } from '../../types';
-import { SAMPLE_STUDY_DOCUMENTS, SampleDoc } from '../../data/mockLearners';
+import React, { useState, useEffect, useRef } from 'react';
+import { User, MzansiMode, MzansiTutorResponse, SummaryResult, QuestionsResult, McqResult, FlashcardsResult, FillGapResult, ChatResult } from '../../types';
 import { ALL_GRADE12_SUBJECTS } from '../../data/grade12Subjects';
+import { SAMPLE_STUDY_DOCUMENTS, SampleDoc } from '../../data/mockLearners';
 import { generateClientSideCapsContent } from '../../services/capsEngine';
+import { parseUploadedDocument, ParsedDocumentResult } from '../../services/documentParser';
 import mzansiAvatar from '../../assets/images/mzansi_tuta_avatar_1792414055226.jpg';
-import { Sparkles, Upload, FileText, CheckCircle, RefreshCw, Layers, HelpCircle, Check, Eye, Send, ArrowRight, BookOpen, AlertCircle, Bookmark } from 'lucide-react';
+import { Sparkles, Upload, FileText, CheckCircle, RefreshCw, Layers, HelpCircle, Check, Eye, Send, ArrowRight, BookOpen, AlertCircle, Bookmark, Image as ImageIcon, Presentation, FileCode, X, Maximize2 } from 'lucide-react';
 
-interface MzansiTutaSectionProps {
+interface MzansiTutorSectionProps {
   currentUser: User | null;
   initialDocumentText?: string;
   initialSubject?: string;
   initialDocTitle?: string;
 }
 
-export const MzansiTutaSection: React.FC<MzansiTutaSectionProps> = ({
+export const MzansiTutorSection: React.FC<MzansiTutorSectionProps> = ({
   currentUser,
   initialDocumentText = '',
-  initialSubject = 'Physical Sciences',
+  initialSubject = 'Mathematics',
   initialDocTitle = '',
 }) => {
-  // Document state
-  const [docTitle, setDocTitle] = useState(initialDocTitle || 'Newton\'s Laws & Organic Chemistry Notes.pdf');
   const [docSubject, setDocSubject] = useState(initialSubject);
-  const [docContent, setDocContent] = useState(initialDocumentText || SAMPLE_STUDY_DOCUMENTS[0].fullContent);
+  const [docTitle, setDocTitle] = useState(initialDocTitle || 'CAPS Exam Revision Document');
+  const [docContent, setDocContent] = useState(
+    initialDocumentText || SAMPLE_STUDY_DOCUMENTS[0].fullContent
+  );
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
-
-  // Active AI mode
+  const [parsedDocInfo, setParsedDocInfo] = useState<ParsedDocumentResult | null>(null);
+  const [isParsingDocument, setIsParsingDocument] = useState(false);
+  const [showExtractedPreview, setShowExtractedPreview] = useState(false);
   const [activeMode, setActiveMode] = useState<MzansiMode>('summary');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [sourceBadge, setSourceBadge] = useState<string>('gemini-ai');
+  const [sourceBadge, setSourceBadge] = useState<string | null>(null);
 
-  // AI Generated output state
-  const [generatedOutput, setGeneratedOutput] = useState<MzansiTutaResponse | null>(null);
+  // Results state
+  const [generatedOutput, setGeneratedOutput] = useState<MzansiTutorResponse | null>(null);
 
-  // Interactive states for modes
-  // MCQ state
-  const [userMcqAnswers, setUserMcqAnswers] = useState<Record<string, number>>({});
+  // Interactive MCQ State
+  const [userMcqAnswers, setUserMcqAnswers] = useState<Record<string, string>>({});
   const [showMcqResults, setShowMcqResults] = useState(false);
 
-  // Flashcards state
+  // Interactive Flashcards State
   const [flippedCards, setFlippedCards] = useState<Record<string, boolean>>({});
-  const [masteredCards, setMasteredCards] = useState<Record<string, boolean>>({});
 
-  // Fill in Gap state
-  const [gapInputs, setGapInputs] = useState<Record<string, string>>({});
+  // Interactive Fill In The Gap State
+  const [gapInputs, setGapInputs] = useState<Record<string, Record<string, string>>>({});
   const [gapChecked, setGapChecked] = useState(false);
-  const [showGapHints, setShowGapHints] = useState<Record<string, boolean>>({});
 
-  // Questions reveal memo state
+  // Exam Questions Revealer State
   const [revealedMemos, setRevealedMemos] = useState<Record<string, boolean>>({});
 
-  // Chat state
+  // Interactive Chat State
   const [chatMessages, setChatMessages] = useState<{ sender: 'user' | 'ai'; text: string }[]>([
     {
       sender: 'ai',
-      text: 'Aweh! I am Mzansi Tuta, your South African Grade 12 AI study partner. Upload notes, past papers, or choose a topic above and ask me to generate summaries, exam questions, MCQs, or flashcards aligned with CAPS!'
+      text: 'Aweh! I am Mzansi Tutor, your South African Grade 12 AI study partner. Upload PDF, Word, PowerPoint notes, past papers, or photos of questions and ask me to generate summaries, exam questions with marking memos, MCQs, or flashcards aligned with CAPS!'
     }
   ]);
   const [chatInput, setChatInput] = useState('');
@@ -68,48 +68,42 @@ export const MzansiTutaSection: React.FC<MzansiTutaSectionProps> = ({
     setDocSubject(sample.subject);
     setDocContent(sample.fullContent);
     setUploadedFileName(null);
+    setParsedDocInfo(null);
     setGeneratedOutput(null);
     setErrorMessage(null);
   };
 
-  // Handle file upload
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle universal file upload (PDF, Word, PPT, Image, Text)
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploadedFileName(file.name);
-    setDocTitle(file.name);
+    setIsParsingDocument(true);
+    setErrorMessage(null);
 
-    // Read text from uploaded file
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (text) {
-        setDocContent(text);
-        setGeneratedOutput(null);
-      }
-    };
-
-    // If text file or readable
-    if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
-      reader.readAsText(file);
-    } else {
-      // For binary files (PDF/Word/PPT/Image), extract file info and provide contextual extraction
-      const extractedPreview = `[EXTRACTED CONTENT FROM: ${file.name} (${(file.size / 1024).toFixed(1)} KB)]
-Topic: Grade 12 ${docSubject} Study Document
-File type: ${file.type || 'Document/Image'}
-
-Key content analyzed: Grade 12 CAPS curriculum examination questions, core formulas, scientific definitions, and practice exercises for ${docSubject}.
-This document is ready for Mzansi Tuta to synthesize into exam questions, multiple choice questions, flashcards, and high-yield study summaries.`;
-      setDocContent(extractedPreview);
+    try {
+      const parsed = await parseUploadedDocument(file, docSubject);
+      setParsedDocInfo(parsed);
+      setUploadedFileName(parsed.fileName);
+      setDocTitle(parsed.fileName);
+      setDocContent(parsed.extractedText);
       setGeneratedOutput(null);
+    } catch (err: any) {
+      console.error('Document parsing error:', err);
+      setErrorMessage(`Could not parse document: ${err.message || 'Unknown format'}. Please try another file.`);
+    } finally {
+      setIsParsingDocument(false);
+      // Reset input value so same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
-  // Call Server API to generate content
+  // Call Server API to generate content with fallback
   const handleGenerate = async (modeToRun: MzansiMode = activeMode, customQuery?: string) => {
     if (!docContent.trim() && !customQuery) {
-      setErrorMessage('Please provide document content or select a study guide above.');
+      setErrorMessage('Please provide document content, upload a file, or select a study guide above.');
       return;
     }
 
@@ -127,7 +121,8 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
     try {
       let data: any = null;
       try {
-        const response = await fetch('/api/mzansi-tuta/generate', {
+        // Try modern endpoint first
+        let response = await fetch('/api/mzansi-tutor/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -136,8 +131,27 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
             subject: docSubject,
             fileName: docTitle,
             customPrompt: customQuery,
+            fileData: parsedDocInfo?.imageDataUrl,
+            fileMimeType: parsedDocInfo?.imageMimeType,
           }),
         });
+
+        // Fallback to legacy endpoint if 404
+        if (response.status === 404) {
+          response = await fetch('/api/mzansi-tuta/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              mode: modeToRun,
+              documentText: docContent,
+              subject: docSubject,
+              fileName: docTitle,
+              customPrompt: customQuery,
+              fileData: parsedDocInfo?.imageDataUrl,
+              fileMimeType: parsedDocInfo?.imageMimeType,
+            }),
+          });
+        }
 
         if (response.ok) {
           data = await response.json();
@@ -194,16 +208,15 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
       
       {/* Header Banner */}
-      <div className="rounded-2xl bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-slate-950 p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-start sm:items-center gap-4">
-          <div className="w-16 h-16 rounded-xl bg-slate-950 p-1 shrink-0 shadow-md">
+      <div className="relative rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 p-6 sm:p-8 text-slate-950 overflow-hidden shadow-md border border-amber-300 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="flex items-center gap-4 z-10">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-slate-950 border-2 border-slate-950/20 shadow-md shrink-0">
             <img
               src={mzansiAvatar}
-              alt="Mzansi Tuta Avatar"
+              alt="Mzansi Tutor Avatar"
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover rounded-lg"
               onError={(e) => {
-                // Fallback icon if image path changes
                 e.currentTarget.style.display = 'none';
               }}
             />
@@ -214,18 +227,18 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
               <span>South Africa Grade 12 AI Study Engine</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-950">
-              Mzansi Tuta
+              Mzansi Tutor
             </h1>
             <p className="text-xs sm:text-sm text-slate-900/90 max-w-2xl font-medium mt-0.5">
-              Turn any Grade 12 PDF, PowerPoint, Word document, or past paper into high-yield CAPS summaries, exam questions with marking memos, interactive MCQs, and flashcards.
+              Upload any Grade 12 PDF, Word document, PowerPoint presentation, or photo of questions to generate high-yield CAPS summaries, exam questions with marking memos, interactive MCQs, and flashcards.
             </p>
           </div>
         </div>
 
         {/* Status pill */}
-        <div className="shrink-0 bg-slate-950 text-white rounded-xl px-4 py-2 text-xs flex items-center gap-2 font-mono">
-          <span className="w-2 h-2 rounded-full bg-emerald-400" />
-          <span>CAPS Exam Engine Ready</span>
+        <div className="shrink-0 bg-slate-950 text-white rounded-xl px-4 py-2 text-xs flex items-center gap-2 font-mono shadow-xs">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>CAPS AI Multimodal Engine Active</span>
         </div>
       </div>
 
@@ -241,8 +254,8 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
                 <FileText className="w-4 h-4 text-amber-600" />
                 Study Material Source
               </span>
-              <span className="text-[11px] text-slate-500">
-                PDF · PPT · DOC · Image
+              <span className="text-[11px] text-slate-500 font-mono">
+                PDF · Word · PPT · Images
               </span>
             </div>
 
@@ -254,7 +267,7 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
               <select
                 value={docSubject}
                 onChange={(e) => setDocSubject(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 font-medium text-slate-800"
+                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 font-medium text-slate-800 bg-white"
               >
                 {ALL_GRADE12_SUBJECTS.map((sub) => (
                   <option key={sub.id} value={sub.name}>{sub.name}</option>
@@ -262,26 +275,128 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
               </select>
             </div>
 
-            {/* Upload Box */}
+            {/* Universal Document Upload Box */}
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-xl p-5 text-center cursor-pointer transition-colors bg-slate-50 hover:bg-amber-50/30 group"
+              className="border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-xl p-5 text-center cursor-pointer transition-all bg-slate-50 hover:bg-amber-50/40 group relative"
             >
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.docx,.doc,.pptx,.ppt,.txt,.png,.jpg,.jpeg"
+                accept=".pdf,.docx,.doc,.pptx,.ppt,.txt,.md,.png,.jpg,.jpeg,.webp"
                 onChange={handleFileUpload}
                 className="hidden"
               />
-              <Upload className="w-7 h-7 text-slate-400 group-hover:text-amber-600 mx-auto mb-2 transition-colors" />
-              <div className="text-xs font-bold text-slate-800">
-                {uploadedFileName ? uploadedFileName : 'Upload Grade 12 Notes or Exam Paper'}
-              </div>
-              <p className="text-[11px] text-slate-500 mt-1">
-                Drop your PDF, Word doc, PowerPoint slides, or photo of notes here
-              </p>
+
+              {isParsingDocument ? (
+                <div className="py-2 space-y-2">
+                  <RefreshCw className="w-8 h-8 text-amber-600 animate-spin mx-auto" />
+                  <div className="text-xs font-bold text-slate-800">
+                    Extracting Document Content...
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Parsing pages, slides, formulas, and diagrams for Mzansi Tutor AI
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <Upload className="w-8 h-8 text-slate-400 group-hover:text-amber-600 mx-auto mb-2 transition-colors" />
+                  <div className="text-xs font-bold text-slate-800">
+                    {uploadedFileName ? uploadedFileName : 'Upload Document for Mzansi Tutor'}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Accepts <strong>PDF</strong>, <strong>Word (.docx)</strong>, <strong>PowerPoint (.pptx)</strong>, or <strong>Images (PNG/JPG)</strong>
+                  </p>
+                  
+                  {/* File type badges */}
+                  <div className="flex items-center justify-center gap-1.5 mt-3 text-[10px] font-mono">
+                    <span className="bg-rose-100 text-rose-800 px-2 py-0.5 rounded font-bold">PDF</span>
+                    <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">Word (.docx)</span>
+                    <span className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-bold">PowerPoint (.pptx)</span>
+                    <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded font-bold">Images (JPG/PNG)</span>
+                  </div>
+                </>
+              )}
             </div>
+
+            {/* Parsed Document Card if Uploaded */}
+            {parsedDocInfo && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {parsedDocInfo.fileType === 'pdf' && (
+                      <div className="w-7 h-7 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-xs shrink-0">
+                        PDF
+                      </div>
+                    )}
+                    {(parsedDocInfo.fileType === 'docx' || parsedDocInfo.fileType === 'doc') && (
+                      <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
+                        DOC
+                      </div>
+                    )}
+                    {(parsedDocInfo.fileType === 'pptx' || parsedDocInfo.fileType === 'ppt') && (
+                      <div className="w-7 h-7 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-xs shrink-0">
+                        PPT
+                      </div>
+                    )}
+                    {parsedDocInfo.fileType === 'image' && (
+                      <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0">
+                        <ImageIcon className="w-4 h-4" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 truncate">
+                        {parsedDocInfo.fileName}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        {parsedDocInfo.summaryNote}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setParsedDocInfo(null);
+                      setUploadedFileName(null);
+                      setDocContent(SAMPLE_STUDY_DOCUMENTS[0].fullContent);
+                      setDocTitle(SAMPLE_STUDY_DOCUMENTS[0].title);
+                    }}
+                    className="text-slate-400 hover:text-slate-600 p-1"
+                    title="Clear file"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Image Thumbnail Preview if image */}
+                {parsedDocInfo.imageDataUrl && (
+                  <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-900 max-h-48 flex items-center justify-center">
+                    <img
+                      src={parsedDocInfo.imageDataUrl}
+                      alt="Uploaded Diagram / Exam question"
+                      className="max-h-48 w-auto object-contain"
+                    />
+                    <div className="absolute bottom-2 left-2 bg-slate-950/80 text-white text-[10px] px-2 py-0.5 rounded backdrop-blur-xs font-mono">
+                      Image Document for Visual AI
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-1 text-[11px]">
+                  <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                    Parsed &amp; Ready for Generation
+                  </span>
+                  <button
+                    onClick={() => setShowExtractedPreview(!showExtractedPreview)}
+                    className="text-amber-700 hover:text-amber-800 font-medium underline flex items-center gap-1"
+                  >
+                    <Eye className="w-3 h-3" />
+                    <span>{showExtractedPreview ? 'Hide Text' : 'Inspect Text'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Preloaded Sample Grade 12 Documents */}
             <div>
@@ -294,7 +409,7 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
                     key={sample.id}
                     onClick={() => handleSelectSample(sample)}
                     className={`w-full text-left p-2.5 rounded-lg border text-xs transition-all flex items-start justify-between gap-2 ${
-                      docTitle === sample.title
+                      docTitle === sample.title && !uploadedFileName
                         ? 'bg-amber-50 border-amber-300 text-amber-900 font-semibold'
                         : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
                     }`}
@@ -315,24 +430,26 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
               </div>
             </div>
 
-            {/* Content Preview & Direct Edit */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-semibold text-slate-700">
-                  Extracted Document Text:
-                </label>
-                <span className="text-[11px] text-slate-400 font-mono">
-                  {docContent.length} chars
-                </span>
+            {/* Extracted Document Text Preview / Edit */}
+            {(!uploadedFileName || showExtractedPreview) && (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700">
+                    Document Text for AI Processing:
+                  </label>
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    {docContent.length} chars
+                  </span>
+                </div>
+                <textarea
+                  value={docContent}
+                  onChange={(e) => setDocContent(e.target.value)}
+                  rows={5}
+                  placeholder="Extracted textbook excerpts, formulas, or syllabus notes..."
+                  className="w-full p-2.5 text-xs font-mono border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 bg-slate-50 text-slate-800 leading-relaxed"
+                />
               </div>
-              <textarea
-                value={docContent}
-                onChange={(e) => setDocContent(e.target.value)}
-                rows={6}
-                placeholder="Type or paste textbook excerpts, formulas, or syllabus notes here..."
-                className="w-full p-2.5 text-xs font-mono border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 bg-slate-50 text-slate-800 leading-relaxed"
-              />
-            </div>
+            )}
 
           </div>
         </div>
@@ -369,25 +486,25 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
                     }`}
                   >
                     <Icon className="w-4 h-4 mb-1" />
-                    <span className="truncate">{m.label}</span>
+                    <span>{m.label}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Action Trigger Button */}
+          {/* Action Button */}
           {activeMode !== 'chat' && (
             <div className="flex items-center gap-3">
               <button
                 onClick={() => handleGenerate(activeMode)}
-                disabled={isLoading}
+                disabled={isLoading || isParsingDocument}
                 className="flex-1 py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm rounded-lg transition-colors flex items-center justify-center gap-2 shadow-xs disabled:opacity-50"
               >
                 {isLoading ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
-                    <span>Mzansi Tuta is Analyzing &amp; Synthesizing...</span>
+                    <span>Mzansi Tutor is Analyzing &amp; Synthesizing...</span>
                   </>
                 ) : (
                   <>
@@ -424,7 +541,7 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">
-                    Mzansi Tuta is Generating Your {docSubject} Study Materials
+                    Mzansi Tutor is Generating Your {docSubject} Study Materials
                   </h3>
                   <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                     Aligning with Department of Basic Education (DBE) examination standards, cognitive levels, and official memoranda guidelines.
@@ -450,37 +567,42 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
                       <h2 className="text-lg font-bold text-slate-900 mt-1">
                         {(generatedOutput as SummaryResult).title}
                       </h2>
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                      <p className="text-xs text-slate-600 mt-2 leading-relaxed">
                         {(generatedOutput as SummaryResult).overview}
                       </p>
                     </div>
 
-                    {/* Key Concepts */}
+                    {/* Key Concepts Grid */}
                     <div className="space-y-3">
+                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                        Core Examination Concepts &amp; Definitions
+                      </h3>
                       {(generatedOutput as SummaryResult).keyConcepts.map((kc, idx) => (
-                        <div key={idx} className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5">
+                        <div key={idx} className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
                           <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                            <span className="w-4 h-4 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px]">
+                            <span className="w-4 h-4 rounded-full bg-amber-500 text-slate-950 font-bold text-[10px] flex items-center justify-center">
                               {idx + 1}
                             </span>
                             {kc.heading}
                           </h4>
-                          <p className="text-xs text-slate-700 leading-relaxed pl-5">
+                          <p className="text-xs text-slate-700 leading-relaxed">
                             {kc.explanation}
                           </p>
-                          <div className="pl-5 pt-1 text-[11px] text-amber-800 font-medium">
-                            <strong className="text-amber-900">Examiner Tip:</strong> {kc.examTip}
+                          <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-900 flex items-start gap-1.5 font-medium">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                            <span><strong>DBE Exam Tip:</strong> {kc.examTip}</span>
                           </div>
                         </div>
                       ))}
                     </div>
 
-                    {/* Highlights */}
-                    <div className="p-4 bg-amber-50/50 rounded-lg border border-amber-200/60">
-                      <span className="text-xs font-bold text-amber-900 block mb-2">
-                        Exam Guidelines &amp; Highlights:
-                      </span>
-                      <ul className="text-xs text-amber-950 space-y-1 list-disc pl-4">
+                    {/* CAPS Highlights List */}
+                    <div className="p-4 rounded-xl bg-slate-900 text-white space-y-2">
+                      <div className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Curriculum Checklist (CAPS DBE)</span>
+                      </div>
+                      <ul className="text-xs text-slate-300 space-y-1.5 list-disc list-inside">
                         {(generatedOutput as SummaryResult).capsHighlights.map((hl, i) => (
                           <li key={i}>{hl}</li>
                         ))}
@@ -488,77 +610,79 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-16 text-slate-500 text-xs">
-                    <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    Click "Generate CAPS High-Yield Summary" to synthesize this document.
+                  <div className="py-16 text-center text-slate-500 text-xs">
+                    Click <strong>Generate CAPS High-Yield Summary</strong> to synthesize your uploaded study document.
                   </div>
                 )}
               </div>
             )}
 
-            {/* MODE 2: QUESTIONS RESULT (SHORT & LONG) */}
+            {/* MODE 2: QUESTIONS & MARKING MEMO */}
             {!isLoading && activeMode === 'questions' && (
               <div>
                 {generatedOutput?.type === 'questions' ? (
                   <div className="space-y-6">
-                    <div className="border-b border-slate-200 pb-3">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/50">
-                        Exam Questions (Short &amp; Long)
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/50">
+                          NSC Exam Simulation
+                        </span>
+                        <h2 className="text-base font-bold text-slate-900 mt-1">
+                          {(generatedOutput as QuestionsResult).title}
+                        </h2>
+                      </div>
+                      <span className="text-xs font-mono text-slate-500">
+                        Official DBE Rubric
                       </span>
-                      <h2 className="text-lg font-bold text-slate-900 mt-1">
-                        {(generatedOutput as QuestionsResult).title}
-                      </h2>
                     </div>
 
                     <div className="space-y-6">
                       {(generatedOutput as QuestionsResult).questions.map((q) => {
                         const isRevealed = revealedMemos[q.id];
                         return (
-                          <div key={q.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                          <div key={q.id} className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
                             <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-900">
+                              <span className="font-bold text-xs text-slate-900">
                                 {q.questionNumber}
                               </span>
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">
+                                <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
                                   {q.cognitiveLevel}
                                 </span>
-                                <span className="text-xs font-bold text-amber-700 font-mono">
+                                <span className="text-xs font-bold text-amber-600 font-mono">
                                   [{q.marks} Marks]
                                 </span>
                               </div>
                             </div>
 
-                            <p className="text-xs font-medium text-slate-800 leading-relaxed">
+                            <p className="text-xs text-slate-800 leading-relaxed font-medium">
                               {q.questionText}
                             </p>
 
-                            {/* Sub questions */}
                             {q.subQuestions && q.subQuestions.length > 0 && (
-                              <div className="pl-3 space-y-1 border-l-2 border-slate-300">
-                                {q.subQuestions.map((sub, i) => (
-                                  <div key={i} className="text-xs text-slate-700 font-mono">
-                                    {sub}
-                                  </div>
+                              <div className="pl-3 border-l-2 border-amber-300 space-y-1.5 text-xs text-slate-700">
+                                {q.subQuestions.map((sq, i) => (
+                                  <div key={i}>{sq}</div>
                                 ))}
                               </div>
                             )}
 
-                            {/* Memo Toggle */}
+                            {/* Memorandum toggle */}
                             <div className="pt-2">
                               <button
-                                onClick={() =>
-                                  setRevealedMemos((prev) => ({ ...prev, [q.id]: !prev[q.id] }))
-                                }
-                                className="text-xs font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1.5"
+                                onClick={() => setRevealedMemos((prev) => ({ ...prev, [q.id]: !isRevealed }))}
+                                className="text-xs font-semibold text-amber-700 hover:text-amber-800 flex items-center gap-1.5"
                               >
                                 <Eye className="w-3.5 h-3.5" />
-                                <span>{isRevealed ? 'Hide Model Answer / Memo' : 'Reveal Model Answer & Marking Memo'}</span>
+                                <span>{isRevealed ? 'Hide Marking Memorandum' : 'Reveal DBE Marking Memo'}</span>
                               </button>
 
                               {isRevealed && (
-                                <div className="mt-2 p-3 bg-emerald-950 text-emerald-100 text-xs rounded-lg font-mono whitespace-pre-wrap leading-relaxed border border-emerald-800">
-                                  <div className="text-emerald-400 font-bold mb-1">Official DBE Marking Guideline:</div>
+                                <div className="mt-3 p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 font-mono whitespace-pre-wrap leading-relaxed">
+                                  <div className="font-bold text-[11px] uppercase tracking-wider text-emerald-800 mb-1 flex items-center gap-1">
+                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>Department of Basic Education Marking Memo</span>
+                                  </div>
                                   {q.memo}
                                 </div>
                               )}
@@ -569,190 +693,200 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-16 text-slate-500 text-xs">
-                    <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    Click "Generate Long &amp; Short Questions" to create practice exam questions with mark allocations.
+                  <div className="py-16 text-center text-slate-500 text-xs">
+                    Click <strong>Generate Long &amp; Short Questions</strong> to formulate exam-standard problems from your document.
                   </div>
                 )}
               </div>
             )}
 
-            {/* MODE 3: MULTIPLE CHOICE QUESTIONS (MCQ) */}
+            {/* MODE 3: MULTIPLE CHOICE QUESTIONS (MCQs) */}
             {!isLoading && activeMode === 'mcq' && (
               <div>
                 {generatedOutput?.type === 'mcq' ? (
                   <div className="space-y-6">
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                      <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/50">
-                          NSC Section A Practice
-                        </span>
-                        <h2 className="text-lg font-bold text-slate-900 mt-1">
-                          {(generatedOutput as McqResult).title}
-                        </h2>
-                      </div>
-                      {showMcqResults && (
-                        <div className="text-xs font-bold text-slate-900 bg-amber-100 px-3 py-1 rounded-lg">
-                          Score:{' '}
-                          {(generatedOutput as McqResult).items.filter(
-                            (item) => userMcqAnswers[item.id] === item.correctIndex
-                          ).length}{' '}
-                          / {(generatedOutput as McqResult).items.length}
-                        </div>
-                      )}
-                    </div>
+                    {(() => {
+                      const mcqData = generatedOutput as McqResult;
+                      const rawQuestions = mcqData.questions || [];
+                      const rawItems = mcqData.items || [];
+                      const mcqItems = rawQuestions.length > 0
+                        ? rawQuestions
+                        : rawItems.map((item, idx) => ({
+                            id: item.id || `mcq-${idx}`,
+                            questionText: item.question,
+                            options: item.options.map((optText, oIdx) => ({
+                              id: ['A', 'B', 'C', 'D'][oIdx] || `${oIdx}`,
+                              text: optText.replace(/^[A-D]\)\s*/, ''),
+                            })),
+                            correctOptionId: ['A', 'B', 'C', 'D'][item.correctIndex] || 'A',
+                            explanation: item.explanation,
+                            examTrap: undefined,
+                          }));
 
-                    <div className="space-y-6">
-                      {(generatedOutput as McqResult).items.map((item, qIdx) => (
-                        <div key={item.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
-                          <h4 className="text-xs font-bold text-slate-900 leading-relaxed">
-                            Question {qIdx + 1}: {item.question}
-                          </h4>
+                      return (
+                        <>
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/50">
+                                Section A Practice
+                              </span>
+                              <h2 className="text-base font-bold text-slate-900 mt-1">
+                                {mcqData.title}
+                              </h2>
+                            </div>
+                            <span className="text-xs text-slate-500 font-mono">
+                              {mcqItems.length} Questions
+                            </span>
+                          </div>
 
-                          <div className="space-y-2">
-                            {item.options.map((option, optIdx) => {
-                              const isSelected = userMcqAnswers[item.id] === optIdx;
-                              const isCorrect = item.correctIndex === optIdx;
-
-                              let optionStyle = 'bg-white border-slate-200 text-slate-700 hover:border-slate-300';
-                              if (showMcqResults) {
-                                if (isCorrect) {
-                                  optionStyle = 'bg-emerald-100 border-emerald-400 text-emerald-950 font-bold';
-                                } else if (isSelected && !isCorrect) {
-                                  optionStyle = 'bg-rose-100 border-rose-300 text-rose-950';
-                                }
-                              } else if (isSelected) {
-                                optionStyle = 'bg-amber-100 border-amber-400 text-amber-950 font-semibold';
-                              }
+                          <div className="space-y-5">
+                            {mcqItems.map((mcq, qIdx) => {
+                              const selectedOption = userMcqAnswers[mcq.id];
 
                               return (
-                                <button
-                                  key={optIdx}
-                                  onClick={() => {
-                                    if (!showMcqResults) {
-                                      setUserMcqAnswers((prev) => ({ ...prev, [item.id]: optIdx }));
-                                    }
-                                  }}
-                                  className={`w-full text-left p-2.5 rounded-lg border text-xs transition-colors flex items-center justify-between ${optionStyle}`}
-                                >
-                                  <span>{option}</span>
-                                  {showMcqResults && isCorrect && (
-                                    <Check className="w-4 h-4 text-emerald-700 shrink-0" />
+                                <div key={mcq.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                                  <div className="text-xs font-bold text-slate-900">
+                                    Question {qIdx + 1}: {mcq.questionText}
+                                  </div>
+
+                                  <div className="space-y-1.5">
+                                    {mcq.options.map((opt) => {
+                                      const isSelected = selectedOption === opt.id;
+                                      let btnClasses = "w-full text-left p-2.5 rounded-lg border text-xs transition-all flex items-center justify-between ";
+
+                                      if (!showMcqResults) {
+                                        btnClasses += isSelected
+                                          ? "bg-amber-100 border-amber-400 text-amber-950 font-semibold"
+                                          : "bg-white border-slate-200 hover:border-slate-300 text-slate-700";
+                                      } else {
+                                        if (opt.id === mcq.correctOptionId) {
+                                          btnClasses += "bg-emerald-100 border-emerald-400 text-emerald-950 font-bold";
+                                        } else if (isSelected) {
+                                          btnClasses += "bg-rose-100 border-rose-400 text-rose-950 line-through";
+                                        } else {
+                                          btnClasses += "bg-white border-slate-200 text-slate-400 opacity-60";
+                                        }
+                                      }
+
+                                      return (
+                                        <button
+                                          key={opt.id}
+                                          onClick={() => {
+                                            if (!showMcqResults) {
+                                              setUserMcqAnswers((prev) => ({ ...prev, [mcq.id]: opt.id }));
+                                            }
+                                          }}
+                                          className={btnClasses}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span className="w-5 h-5 rounded-md bg-slate-200 text-slate-700 font-mono font-bold text-[10px] flex items-center justify-center">
+                                              {opt.id}
+                                            </span>
+                                            <span>{opt.text}</span>
+                                          </div>
+                                          {showMcqResults && opt.id === mcq.correctOptionId && (
+                                            <Check className="w-4 h-4 text-emerald-600" />
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {/* Rationale and Trap Explanation */}
+                                  {showMcqResults && (
+                                    <div className="pt-2 text-xs space-y-1.5 border-t border-slate-200">
+                                      <div className="text-emerald-900 font-medium">
+                                        <strong>Memo Reason:</strong> {mcq.explanation}
+                                      </div>
+                                      {mcq.examTrap && (
+                                        <div className="text-amber-800 text-[11px]">
+                                          <strong>Examiner Trap:</strong> {mcq.examTrap}
+                                        </div>
+                                      )}
+                                    </div>
                                   )}
-                                </button>
+                                </div>
                               );
                             })}
                           </div>
 
-                          {showMcqResults && (
-                            <div className="p-3 bg-white rounded-lg border border-slate-200 text-xs text-slate-700">
-                              <strong className="text-slate-900">Explanation:</strong> {item.explanation}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                          <div className="pt-2 flex items-center justify-between">
+                            <button
+                              onClick={() => setShowMcqResults(!showMcqResults)}
+                              className="py-2 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition-colors"
+                            >
+                              {showMcqResults ? 'Hide Results & Retry' : 'Check Answers & Show Memos'}
+                            </button>
 
-                    <div className="pt-2">
-                      <button
-                        onClick={() => setShowMcqResults(!showMcqResults)}
-                        className="py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors"
-                      >
-                        {showMcqResults ? 'Reset / Retake Quiz' : 'Grade My Answers'}
-                      </button>
-                    </div>
+                            {showMcqResults && (
+                              <div className="text-xs font-mono font-bold text-slate-800">
+                                Score: {Object.entries(userMcqAnswers).filter(([id, ans]) => {
+                                  const q = mcqItems.find(x => x.id === id);
+                                  return q && q.correctOptionId === ans;
+                                }).length} / {mcqItems.length} Correct
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 ) : (
-                  <div className="text-center py-16 text-slate-500 text-xs">
-                    <CheckCircle className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    Click "Generate Multiple Choice Exam Questions" to test your knowledge.
+                  <div className="py-16 text-center text-slate-500 text-xs">
+                    Click <strong>Generate Multiple Choice Exam Questions</strong> to create interactive practice items.
                   </div>
                 )}
               </div>
             )}
 
-            {/* MODE 4: FLASHCARDS */}
+            {/* MODE 4: INTERACTIVE FLASHCARDS */}
             {!isLoading && activeMode === 'flashcards' && (
               <div>
                 {generatedOutput?.type === 'flashcards' ? (
                   <div className="space-y-6">
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                       <div>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/50">
-                          Matric Mastery Flashcards
+                          Active Recall
                         </span>
-                        <h2 className="text-lg font-bold text-slate-900 mt-1">
+                        <h2 className="text-base font-bold text-slate-900 mt-1">
                           {(generatedOutput as FlashcardsResult).title}
                         </h2>
                       </div>
-                      <span className="text-xs text-slate-500 font-mono">
-                        {(generatedOutput as FlashcardsResult).cards.length} Cards
+                      <span className="text-xs text-slate-500">
+                        Click any card to flip
                       </span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {(generatedOutput as FlashcardsResult).cards.map((card) => {
                         const isFlipped = flippedCards[card.id];
-                        const isMastered = masteredCards[card.id];
 
                         return (
                           <div
                             key={card.id}
-                            className={`rounded-xl border p-5 transition-all shadow-xs flex flex-col justify-between min-h-[180px] ${
-                              isMastered ? 'bg-emerald-50/40 border-emerald-300' : 'bg-slate-50 border-slate-200'
+                            onClick={() => setFlippedCards((prev) => ({ ...prev, [card.id]: !isFlipped }))}
+                            className={`p-5 rounded-xl border transition-all cursor-pointer min-h-[160px] flex flex-col justify-between select-none ${
+                              isFlipped
+                                ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-md rotate-y-180'
+                                : 'bg-slate-900 text-white border-slate-800 hover:border-slate-700 shadow-xs'
                             }`}
                           >
-                            <div>
-                              <div className="flex items-center justify-between gap-2 mb-2">
-                                <span className="text-[10px] font-bold uppercase text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 font-mono">
-                                  {card.category}
-                                </span>
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                  card.difficulty === 'Easy' ? 'bg-emerald-100 text-emerald-800' :
-                                  card.difficulty === 'Medium' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
-                                }`}>
-                                  {card.difficulty}
-                                </span>
-                              </div>
-
-                              <div
-                                onClick={() =>
-                                  setFlippedCards((prev) => ({ ...prev, [card.id]: !prev[card.id] }))
-                                }
-                                className="cursor-pointer py-2"
-                              >
-                                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block mb-1">
-                                  {isFlipped ? 'Answer (Click to flip back):' : 'Question (Click to flip):'}
-                                </span>
-                                <div className="text-xs font-semibold text-slate-900 leading-relaxed">
-                                  {isFlipped ? card.back : card.front}
-                                </div>
-                              </div>
+                            <div className="flex items-center justify-between text-[10px] uppercase font-mono">
+                              <span className={isFlipped ? 'text-slate-900 font-bold' : 'text-amber-400 font-semibold'}>
+                                {card.category}
+                              </span>
+                              <span className={isFlipped ? 'text-slate-800' : 'text-slate-500'}>
+                                {isFlipped ? 'Answer (Memo)' : 'Prompt / Definition'}
+                              </span>
                             </div>
 
-                            <div className="pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs">
-                              <button
-                                onClick={() =>
-                                  setFlippedCards((prev) => ({ ...prev, [card.id]: !prev[card.id] }))
-                                }
-                                className="text-[11px] text-slate-500 hover:text-slate-900 font-medium underline"
-                              >
-                                {isFlipped ? 'View Front' : 'Flip Card'}
-                              </button>
+                            <div className="my-auto py-2 text-xs font-semibold leading-relaxed">
+                              {isFlipped ? card.back : card.front}
+                            </div>
 
-                              <button
-                                onClick={() =>
-                                  setMasteredCards((prev) => ({ ...prev, [card.id]: !prev[card.id] }))
-                                }
-                                className={`text-[11px] font-bold px-2 py-1 rounded transition-colors flex items-center gap-1 ${
-                                  isMastered
-                                    ? 'bg-emerald-600 text-white'
-                                    : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
-                                }`}
-                              >
-                                <Check className="w-3 h-3" />
-                                <span>{isMastered ? 'Mastered' : 'Mark as Mastered'}</span>
-                              </button>
+                            <div className="text-[10px] text-right font-mono opacity-60">
+                              Click to flip ↷
                             </div>
                           </div>
                         );
@@ -760,9 +894,8 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-16 text-slate-500 text-xs">
-                    <Layers className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    Click "Generate Revision Flashcard Deck" to create quick active recall cards.
+                  <div className="py-16 text-center text-slate-500 text-xs">
+                    Click <strong>Generate Revision Flashcard Deck</strong> to practice active recall on key Grade 12 concepts.
                   </div>
                 )}
               </div>
@@ -773,69 +906,76 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
               <div>
                 {generatedOutput?.type === 'fillgap' ? (
                   <div className="space-y-6">
-                    <div className="border-b border-slate-200 pb-3">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/50">
-                        Fill in the Gap Exercise
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/50">
+                          Cloze Test
+                        </span>
+                        <h2 className="text-base font-bold text-slate-900 mt-1">
+                          {(generatedOutput as FillGapResult).title}
+                        </h2>
+                      </div>
+                      <span className="text-xs text-slate-500">
+                        Type the missing terms
                       </span>
-                      <h2 className="text-lg font-bold text-slate-900 mt-1">
-                        {(generatedOutput as FillGapResult).title}
-                      </h2>
                     </div>
 
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       {(generatedOutput as FillGapResult).sentences.map((item, idx) => (
-                        <div key={item.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
-                          <span className="text-xs font-bold text-slate-800">
-                            Sentence {idx + 1}:
-                          </span>
+                        <div key={item.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3 text-xs leading-loose">
+                          <div className="font-bold text-slate-900">
+                            Problem {idx + 1}:
+                          </div>
 
-                          <p className="text-xs text-slate-800 leading-relaxed font-mono">
+                          <div className="text-slate-800">
                             {item.sentence}
-                          </p>
+                          </div>
 
                           {/* Gap inputs */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                            {item.gaps.map((gap) => {
-                              const userVal = (gapInputs[gap.id] || '').trim().toLowerCase();
-                              const isRight = userVal === gap.answer.trim().toLowerCase();
-                              const showHint = showGapHints[gap.id];
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-200">
+                            {item.gaps.map((g) => {
+                              const val = gapInputs[item.id]?.[g.id] || '';
+                              const isMatch = val.trim().toLowerCase() === g.answer.toLowerCase();
 
                               return (
-                                <div key={gap.id} className="space-y-1">
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-[11px] font-semibold text-slate-700 font-mono">
-                                      {gap.id}:
-                                    </label>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setShowGapHints((prev) => ({ ...prev, [gap.id]: !prev[gap.id] }))
-                                      }
-                                      className="text-[10px] text-amber-700 hover:underline"
-                                    >
-                                      {showHint ? `Hint: ${gap.hint}` : 'Need a hint?'}
-                                    </button>
+                                <div key={g.id} className="space-y-1">
+                                  <div className="flex items-center justify-between text-[11px] text-slate-600">
+                                    <span>Fill <strong>[{g.id}]</strong>:</span>
+                                    <span className="text-slate-400 italic">Hint: {g.hint}</span>
                                   </div>
-                                  <input
-                                    type="text"
-                                    value={gapInputs[gap.id] || ''}
-                                    onChange={(e) =>
-                                      setGapInputs((prev) => ({ ...prev, [gap.id]: e.target.value }))
-                                    }
-                                    placeholder="Type answer..."
-                                    className={`w-full px-2.5 py-1.5 text-xs font-mono rounded-lg border ${
-                                      gapChecked
-                                        ? isRight
-                                          ? 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold'
-                                          : 'border-rose-400 bg-rose-50 text-rose-950'
-                                        : 'border-slate-300'
-                                    }`}
-                                  />
-                                  {gapChecked && !isRight && (
-                                    <div className="text-[10px] text-rose-700">
-                                      Correct: <strong>{gap.answer}</strong>
-                                    </div>
-                                  )}
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="text"
+                                      value={val}
+                                      onChange={(e) => {
+                                        const newVal = e.target.value;
+                                        setGapInputs((prev) => ({
+                                          ...prev,
+                                          [item.id]: {
+                                            ...(prev[item.id] || {}),
+                                            [g.id]: newVal
+                                          }
+                                        }));
+                                      }}
+                                      placeholder="Type answer here..."
+                                      className={`w-full px-2.5 py-1.5 text-xs rounded border font-mono ${
+                                        gapChecked
+                                          ? isMatch
+                                            ? 'bg-emerald-50 border-emerald-500 text-emerald-900 font-bold'
+                                            : 'bg-rose-50 border-rose-500 text-rose-900'
+                                          : 'bg-white border-slate-300'
+                                      }`}
+                                    />
+                                    {gapChecked && (
+                                      isMatch ? (
+                                        <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                                      ) : (
+                                        <span className="text-[10px] text-emerald-700 font-mono font-bold shrink-0">
+                                          ({g.answer})
+                                        </span>
+                                      )
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}
@@ -847,22 +987,21 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
                     <div className="pt-2">
                       <button
                         onClick={() => setGapChecked(!gapChecked)}
-                        className="py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors"
+                        className="py-2 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition-colors"
                       >
-                        {gapChecked ? 'Clear & Retry' : 'Check My Gap Answers'}
+                        {gapChecked ? 'Clear Corrections' : 'Check Answers & Reveal Hints'}
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-16 text-slate-500 text-xs">
-                    <Bookmark className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    Click "Generate Fill in the Gap Exercises" to test your exact recall of CAPS laws and definitions.
+                  <div className="py-16 text-center text-slate-500 text-xs">
+                    Click <strong>Generate Fill in the Gap Exercises</strong> to test precision recall.
                   </div>
                 )}
               </div>
             )}
 
-            {/* MODE 6: INTERACTIVE CHAT WITH MZANSI TUTA */}
+            {/* MODE 6: INTERACTIVE CHAT WITH MZANSI TUTOR */}
             {!isLoading && activeMode === 'chat' && (
               <div className="space-y-4 flex flex-col h-[460px]">
                 <div className="flex-1 overflow-y-auto space-y-3 p-2">
@@ -896,7 +1035,7 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
                     type="text"
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    placeholder={`Ask Mzansi Tuta anything about Grade 12 ${docSubject}...`}
+                    placeholder={`Ask Mzansi Tutor anything about Grade 12 ${docSubject}...`}
                     className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                   />
                   <button
@@ -920,3 +1059,6 @@ This document is ready for Mzansi Tuta to synthesize into exam questions, multip
     </div>
   );
 };
+
+// Backward-compatible alias
+export const MzansiTutaSection = MzansiTutorSection;

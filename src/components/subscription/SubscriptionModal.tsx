@@ -224,7 +224,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 <ul className="text-[11px] text-slate-600 space-y-1.5 pt-2 border-t border-slate-100">
                   <li className="flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Full Mzansi Tuta AI</span>
+                    <span>Full Mzansi Tutor AI</span>
                   </li>
                   <li className="flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -347,7 +347,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                   </li>
                   <li className="flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Priority Mzansi Tuta AI speed</span>
+                    <span>Priority Mzansi Tutor AI speed</span>
                   </li>
                 </ul>
               </div>
